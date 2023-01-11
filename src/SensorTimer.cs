@@ -2,21 +2,17 @@ namespace HardwareSensorsToMQTT
 {
     public class SensorTimer
     {
-        private readonly Monitor _monitor;
-        private readonly string _id;
-        private readonly TimeSpan _interval;
-        public SensorTimer(Monitor monitor, string id, TimeSpan interval)
+        private readonly SensorWrapper _sensor;
+        public SensorTimer(SensorWrapper sensorWrapper)
         {
-            _monitor = monitor;
-            _id = id;
-            _interval = interval;
+            _sensor = sensorWrapper;
         }
 
         public async Task StartTimerAsync(CancellationToken cancellationToken)
         {
             Update();
 
-            var timer = new PeriodicTimer(_interval);
+            var timer = new PeriodicTimer(_sensor.PublishInterval);
 
             while (await timer.WaitForNextTickAsync(cancellationToken))
             {
@@ -26,8 +22,9 @@ namespace HardwareSensorsToMQTT
 
         private void Update()
         {
-            var sensorResult = _monitor.GetSensorValue(_id);
-            Console.WriteLine($"[{DateTime.Now.ToString()}] - {sensorResult}");
+            _sensor.Update();
+            
+            Console.WriteLine($"[{DateTime.Now.ToString()}] - {_sensor.Value}");
         }
     }
 }
