@@ -25,6 +25,13 @@ jobs:
     - name: Attempt publish
       run: |
         cd src
-        dotnet publish
         dotnet publish -c Release -r win-x64 --self-contained true
-        dotnet publish -c Release -r linux-x64 --self-contained true
+
+    - uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "latest"
+          prerelease: true
+          title: "Development Build"
+          files: |
+            ./src/bin/Release/net7.0/win-x64/HardwareSensorsToMQTT.exe
