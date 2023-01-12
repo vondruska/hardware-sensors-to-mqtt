@@ -1,27 +1,31 @@
 using System.Text.RegularExpressions;
 using System.Threading;
 using Microsoft.Extensions.Options;
+using MQTTnet;
+using MQTTnet.Client;
+using MQTTnet.Diagnostics;
+using MQTTnet.Extensions.ManagedClient;
 
 namespace HardwareSensorsToMQTT;
 
 public class Worker : BackgroundService
 {
     private readonly ILogger<Worker> _logger;
-    private readonly IConfiguration _configuration;
+    private readonly IOptions<HardwareSensorsToMQTTConfiguration> _configuration;
+    private readonly IManagedMqttClient _mqttClient;
 
-    public Worker(ILogger<Worker> logger, IConfiguration configuration)
+    public Worker(ILogger<Worker> logger, ILoggerFactory loggerFactory, IOptions<HardwareSensorsToMQTTConfiguration> configuration)
     {
         _logger = logger;
         _configuration = configuration;
+        _mqttClient = new MqttFactory(new MqttLogger(loggerFactory)).CreateManagedMqttClient();
     }
 
     protected override async Task ExecuteAsync(CancellationToken cancellationToken)
     {
-        // while (!stoppingToken.IsCancellationRequested)
-        // {
-        //     _logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
-        //     await Task.Delay(1000, stoppingToken);
-        // }
+        await StartMqttClientAsync();
+        var mqttPublisher = new MqttPublisher(_configuration.Value, _mqttClient);
+
         var availableHardwareSensors = HardwareSensors.GetAllSensors();
         _logger.LogDebug("Found {0} hardware sensors", new[]
         {
@@ -29,7 +33,7 @@ public class Worker : BackgroundService
         });
 
         var sensorWrappers = new List<SensorWrapper>();
-        var sensorsToCareAbout = ConfigToSensors(_configuration.GetSection("SensorsToPublish").GetChildren());
+        var sensorsToCareAbout = _configuration.Value.SensorsToPublish;
         _logger.LogDebug("Looking for '{0}' sensors", new object[] {
                 String.Join(",", sensorsToCareAbout.Select(x => x.Id))
             });
@@ -42,28 +46,89 @@ public class Worker : BackgroundService
                 .Select(x => new SensorWrapper(x, item.Interval));
 
             _logger.LogDebug("'{0}' matched sensor(s) '{1}' hardware sensors", item.Id, String.Join(", ", matchingSensors.Select(x => $"{x.FriendlyName} [{x.Id}]")));
-    
 
-            if(!matchingSensors.Any()) {
+
+            if (!matchingSensors.Any())
+            {
                 _logger.LogWarning("Pattern '{0}' matched zero sensors. Could be a misconfiguration.", item.Id);
             }
 
             sensorWrappers.AddRange(matchingSensors);
         }
 
-        var tasks = sensorWrappers.Select(x => new SensorTimer(x).StartTimerAsync(cancellationToken));
+        if (_configuration.Value.Mqtt.EnableHomeAssistantAutoDiscovery)
+        {
+            await mqttPublisher.PublishHomeAssistantAutoDiscover(sensorWrappers);
+        }
+
+        var tasks = sensorWrappers.Select(x => new SensorTimer(x, mqttPublisher).StartTimerAsync(cancellationToken));
         await Task.WhenAll(tasks);
     }
 
-    private static IEnumerable<SensorToPublishConfiguration> ConfigToSensors(IEnumerable<IConfigurationSection> input)
+    public async override Task StopAsync(CancellationToken cancellationToken)
     {
-        foreach (var item in input)
+        await base.StopAsync(cancellationToken);
+
+        await _mqttClient.StopAsync();
+    }
+
+    private async Task StartMqttClientAsync()
+    {
+        var options = new ManagedMqttClientOptionsBuilder()
+            .WithAutoReconnectDelay(TimeSpan.FromSeconds(5))
+            .WithClientOptions(new MqttClientOptionsBuilder()
+                .WithClientId(Guid.NewGuid().ToString())
+                .WithTcpServer(_configuration.Value.Mqtt.Host, _configuration.Value.Mqtt.Port)
+                .WithCredentials(_configuration.Value.Mqtt.Username, _configuration.Value.Mqtt.Password)
+                .Build())
+            .Build();
+
+        await _mqttClient.StartAsync(options);
+    }
+
+    private async Task<IManagedMqttClient> MqttClient()
+    {
+        // Setup and start a managed MQTT client.
+        var options = new ManagedMqttClientOptionsBuilder()
+            .WithAutoReconnectDelay(TimeSpan.FromSeconds(5))
+            .WithClientOptions(new MqttClientOptionsBuilder()
+                .WithClientId(Guid.NewGuid().ToString())
+                .WithTcpServer(_configuration.Value.Mqtt.Host, _configuration.Value.Mqtt.Port)
+                .WithCredentials(_configuration.Value.Mqtt.Username, _configuration.Value.Mqtt.Password)
+                .Build())
+            .Build();
+
+        var mqttClient = new MqttFactory().CreateManagedMqttClient();
+        await mqttClient.StartAsync(options);
+        return mqttClient;
+    }
+}
+
+public class MqttLogger : IMqttNetLogger
+{
+    private readonly ILogger _logger;
+    public MqttLogger(ILoggerFactory factory)
+    {
+        _logger = factory.CreateLogger("HardwareSensorsToMQTT.MQTT");
+    }
+    public bool IsEnabled => true;
+
+    public void Publish(MqttNetLogLevel logLevel, string source, string message, object[] parameters, Exception exception)
+    {
+        switch (logLevel)
         {
-            var id = item.GetValue<string>("id") ?? throw new ArgumentNullException("Sensor id is null");
-            yield return new SensorToPublishConfiguration(id)
-            {
-                Interval = item.GetValue<TimeSpan>("interval")
-            };
+            case MqttNetLogLevel.Error:
+                _logger.LogError(exception, message, source, parameters);
+                break;
+            case MqttNetLogLevel.Info:
+                _logger.LogInformation(exception, message, source, parameters);
+                break;
+            case MqttNetLogLevel.Warning:
+                _logger.LogWarning(exception, message, source, parameters);
+                break;
+            case MqttNetLogLevel.Verbose:
+                _logger.LogDebug(exception, message, source, parameters);
+                break;
         }
     }
 }
