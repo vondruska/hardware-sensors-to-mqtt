@@ -26,12 +26,12 @@ jobs:
       run: |
         cd src
         dotnet publish -c Release -r win-x64 --self-contained true
-
+    
     - uses: "marvinpinto/action-automatic-releases@latest"
-        with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "latest"
-          prerelease: true
-          title: "Development Build"
-          files: |
-            ./src/bin/Release/net7.0/win-x64/HardwareSensorsToMQTT.exe
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        automatic_release_tag: "latest"
+        prerelease: true
+        title: "Development Build"
+        files: |
+          ./src/bin/Release/net7.0/win-x64/HardwareSensorsToMQTT.exe
