@@ -2,6 +2,7 @@ using HardwareSensorsToMQTT.Models.HomeAssistant;
 using MQTTnet;
 using MQTTnet.Extensions.ManagedClient;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace HardwareSensorsToMQTT;
 
@@ -11,6 +12,8 @@ public class MqttPublisher : IMqttPublisher
     private const string STATE_SUFFIX = "state";
     private readonly HardwareSensorsToMQTTConfiguration _configuration;
     private readonly IManagedMqttClient _mqttClient;
+
+
 
     public MqttPublisher(HardwareSensorsToMQTTConfiguration configuration, IManagedMqttClient managedMqttClient)
     {
@@ -42,9 +45,8 @@ public class MqttPublisher : IMqttPublisher
 
     private string DeviceName => _configuration.Name ?? Environment.MachineName;
 
-    private string StateTopic(string id) => $"{APPLICATION_MQTT_PREFIX}/{DeviceName}/{NormalizeNameToMqtt(id)}/state";
-    private string AutoDiscoverTopic(string id) => $"{_configuration.Mqtt.HomeAssistantAutoDiscoverTopic}/sensor/{NormalizeNameToMqtt(id)}/config";
-    private string NormalizeNameToMqtt(string id) => id.Replace('/', '_');
+    private string StateTopic(string id) => $"{APPLICATION_MQTT_PREFIX}/{DeviceName}/{id.NormalizeIdForMqtt()}/state";
+    private string AutoDiscoverTopic(string id) => $"{_configuration.Mqtt.HomeAssistantAutoDiscoverTopic}/sensor/{id.NormalizeIdForMqtt()}/config";
 
     private Device Device
     {
