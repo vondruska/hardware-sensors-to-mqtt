@@ -25,7 +25,7 @@ jobs:
     - name: Attempt publish
       run: |
         cd src
-        dotnet publish -p:PublishSingleFile=true -r win-x64 -c Release --self-contained true -p:EnableCompressionInSingleFile=true -p:PublishReadyToRun=true
+        dotnet publish -p:PublishSingleFile=true -r win-x64 -c Release --self-contained true -p:PublishReadyToRun=true
     
     - uses: "marvinpinto/action-automatic-releases@latest"
       with:
