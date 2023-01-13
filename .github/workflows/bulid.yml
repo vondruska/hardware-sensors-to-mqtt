@@ -34,4 +34,4 @@ jobs:
         prerelease: true
         title: "Development Build"
         files: |
-          ./src/bin/Release/net7.0/win-x64/HardwareSensorsToMQTT.exe
+          ./src/bin/Release/net7.0/win-x64/publish/HardwareSensorsToMQTT.exe
