@@ -60,10 +60,8 @@ public static class MeasurementUnit
                 return "power";
             case SensorType.Temperature:
                 return "temperature";
-            case SensorType.Load:
-            case SensorType.Control:
-            case SensorType.Level:
-                return "power_factor";
+
+            // return "power_factor";
             case SensorType.Frequency:
                 return "frequency";
             case SensorType.Data:
@@ -78,6 +76,9 @@ public static class MeasurementUnit
             case SensorType.Fan:  // rpm isn't supported in Home Assistant?
             case SensorType.Clock:
             case SensorType.Flow:
+            case SensorType.Load:
+            case SensorType.Control:
+            case SensorType.Level:
             case SensorType.Factor: // still don't understand this one
             default:
                 return "None";
