@@ -10,7 +10,7 @@ if (args.Length == 1)
         var hardwareSensors = new HardwareSensors();
         var sensors = hardwareSensors.GetAllSensors();
 
-        foreach (var item in sensors)
+        foreach (var item in sensors.OrderBy(x => x.Hardware.Name).ThenBy(x => x.SensorType).ThenBy(x => x.Name))
         {
             Console.WriteLine($"Name = {item.Name} || Hardware = {item.Hardware.Name} || Id = {item.Identifier} || Value = {item.Value}");
         }
