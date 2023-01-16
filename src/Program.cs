@@ -7,7 +7,8 @@ if (args.Length == 1)
     if (args[0] == "list-sensors")
     {
         Console.WriteLine("Dumping all hardware sensors available");
-        var sensors = HardwareSensors.GetAllSensors();
+        var hardwareSensors = new HardwareSensors();
+        var sensors = hardwareSensors.GetAllSensors();
 
         foreach (var item in sensors)
         {

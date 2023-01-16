@@ -2,9 +2,26 @@ using LibreHardwareMonitor.Hardware;
 
 namespace HardwareSensorsToMQTT
 {
-    public class HardwareSensors
+    public class HardwareSensors : IDisposable
     {
+        private readonly Computer _computer;
 
+        public HardwareSensors()
+        {
+            _computer = new Computer
+            {
+                IsCpuEnabled = true,
+                IsGpuEnabled = true,
+                IsMemoryEnabled = true,
+                IsMotherboardEnabled = true,
+                IsControllerEnabled = true,
+                IsNetworkEnabled = true,
+                IsStorageEnabled = true
+            };
+
+            _computer.Open();
+            _computer.Accept(new UpdateVisitor());
+        }
         public class UpdateVisitor : IVisitor
         {
             public void VisitComputer(IComputer computer)
@@ -20,25 +37,11 @@ namespace HardwareSensorsToMQTT
             public void VisitParameter(IParameter parameter) { }
         }
 
-        public static IEnumerable<ISensor> GetAllSensors()
+        public IEnumerable<ISensor> GetAllSensors()
         {
             var returnList = new List<ISensor>();
 
-            Computer computer = new Computer
-            {
-                IsCpuEnabled = true,
-                IsGpuEnabled = true,
-                IsMemoryEnabled = true,
-                IsMotherboardEnabled = true,
-                IsControllerEnabled = true,
-                IsNetworkEnabled = true,
-                IsStorageEnabled = true
-            };
-
-            computer.Open();
-            computer.Accept(new UpdateVisitor());
-
-            foreach (IHardware hardware in computer.Hardware)
+            foreach (IHardware hardware in _computer.Hardware)
             {
                 // Console.WriteLine("Hardware: {0}", hardware.Name);
 
@@ -60,9 +63,12 @@ namespace HardwareSensorsToMQTT
                 }
             }
 
-            computer.Close();
-
             return returnList;
+        }
+
+        public void Dispose()
+        {
+            _computer.Close();
         }
     }
 }

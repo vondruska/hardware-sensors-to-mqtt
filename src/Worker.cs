@@ -13,12 +13,14 @@ public class Worker : BackgroundService
     private readonly ILogger<Worker> _logger;
     private readonly IOptions<HardwareSensorsToMQTTConfiguration> _configuration;
     private readonly IManagedMqttClient _mqttClient;
+    private readonly HardwareSensors _hardwareSensors;
 
     public Worker(ILogger<Worker> logger, ILoggerFactory loggerFactory, IOptions<HardwareSensorsToMQTTConfiguration> configuration)
     {
         _logger = logger;
         _configuration = configuration;
         _mqttClient = new MqttFactory(new MqttLogger(loggerFactory)).CreateManagedMqttClient();
+        _hardwareSensors = new HardwareSensors();
     }
 
     protected override async Task ExecuteAsync(CancellationToken cancellationToken)
@@ -26,7 +28,7 @@ public class Worker : BackgroundService
         await StartMqttClientAsync();
         var mqttPublisher = new MqttPublisher(_configuration.Value, _mqttClient);
 
-        var availableHardwareSensors = HardwareSensors.GetAllSensors();
+        var availableHardwareSensors = _hardwareSensors.GetAllSensors();
         _logger.LogDebug("Found {0} hardware sensors", new[]
         {
             availableHardwareSensors.Count()
@@ -68,7 +70,7 @@ public class Worker : BackgroundService
     public async override Task StopAsync(CancellationToken cancellationToken)
     {
         await base.StopAsync(cancellationToken);
-
+        _hardwareSensors.Dispose();
         await _mqttClient.StopAsync();
     }
 
